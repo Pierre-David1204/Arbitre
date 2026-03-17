@@ -65,10 +65,10 @@ if division == "D2":
     if st.button("Valider résultat"):
 
         if resultat == equipe1:
-            vainqueur = match["equipe1"]
+            vainqueur = int(match["equipe1"])
 
         elif resultat == equipe2:
-            vainqueur = match["equipe2"]
+            vainqueur = int(match["equipe2"])
 
         else:
             vainqueur = None
