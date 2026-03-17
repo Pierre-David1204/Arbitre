@@ -11,6 +11,7 @@ st.title("⚖️ Application arbitre")
 
 terrain = st.selectbox("Terrain",[1,2,3,4,5,6])
 
+# division
 if terrain <=4:
     division = "D2"
     table_matchs = "matchs"
@@ -20,9 +21,11 @@ else:
     table_matchs = "d1_matchs"
     table_equipes = "d1_equipes"
 
+# équipes
 equipes_data = supabase.table(table_equipes).select("*").execute()
 equipes = {e["id"]:e["nom"] for e in equipes_data.data}
 
+# matchs
 data = supabase.table(table_matchs)\
 .select("*")\
 .eq("terrain",terrain)\
@@ -39,74 +42,163 @@ if df.empty:
 
 match = df.iloc[0]
 
-equipe1_id = match["equipe1"]
-equipe2_id = match["equipe2"]
+equipe1_id = int(match["equipe1"])
+equipe2_id = int(match["equipe2"])
 
 equipe1 = equipes[equipe1_id]
 equipe2 = equipes[equipe2_id]
 
-st.header(f"{equipe1} vs {equipe2}")
+heure = pd.to_datetime(str(match["heure"])).strftime("%H:%M")
 
-# =====================
+st.header(f"{heure} | Terrain {terrain}")
+st.subheader(f"{equipe1} vs {equipe2}")
+
+# ========================
 # D2
-# =====================
+# ========================
 
 if division == "D2":
 
-    choix=[equipe1,equipe2,"Match nul"]
+    choix = [equipe1,equipe2,"Match nul"]
 
-    m1=st.radio("Manche 1",choix)
-    m2=st.radio("Manche 2",choix)
-    m3=st.radio("Manche 3",choix)
+    m1 = st.radio("Manche 1",choix)
+    m2 = st.radio("Manche 2",choix)
+    m3 = st.radio("Manche 3",choix)
 
-    if st.button("Valider"):
+    if st.button("Valider résultat"):
 
-        wins1=0
-        wins2=0
+        wins1 = 0
+        wins2 = 0
 
         for m in [m1,m2,m3]:
 
-            if m==equipe1:
-                wins1+=1
-            elif m==equipe2:
-                wins2+=1
+            if m == equipe1:
+                wins1 +=1
+
+            elif m == equipe2:
+                wins2 +=1
+
+        if wins1 > wins2:
+            vainqueur = equipe1_id
+            match_nul = False
+
+        elif wins2 > wins1:
+            vainqueur = equipe2_id
+            match_nul = False
+
+        else:
+            vainqueur = None
+            match_nul = True
 
         supabase.table("matchs").update({
 
-            "score1":wins1,
-            "score2":wins2,
-            "vainqueur":None if wins1==wins2 else (equipe1_id if wins1>wins2 else equipe2_id),
-            "match_nul":wins1==wins2,
-            "termine":True
+            "score1": int(wins1),
+            "score2": int(wins2),
+            "vainqueur": vainqueur,
+            "match_nul": match_nul,
+            "termine": True
 
-        }).eq("id",match["id"]).execute()
-
-        recalcul_classement_d2()
+        }).eq("id", int(match["id"])).execute()
 
         st.rerun()
 
-# =====================
+# ========================
 # D1
-# =====================
+# ========================
 
 else:
 
-    score1=st.number_input(equipe1,0)
-    score2=st.number_input(equipe2,0)
+    actions = {
+        "Tâche A":10,
+        "Tâche B":20,
+        "Tâche C":30
+    }
 
-    if st.button("Valider"):
+    penalites = {
+        "Obstacle touché":5,
+        "Sortie terrain":10
+    }
+
+    col1,col2 = st.columns(2)
+
+    score_actions1 = 0
+    score_pen1 = 0
+    score_actions2 = 0
+    score_pen2 = 0
+
+    with col1:
+
+        st.subheader(equipe1)
+
+        for action,val in actions.items():
+
+            n = st.number_input(action,0,10,key=f"a1_{action}")
+            score_actions1 += n * val
+
+        for pen,val in penalites.items():
+
+            n = st.number_input(pen,0,10,key=f"p1_{pen}")
+            score_pen1 += n * val
+
+    with col2:
+
+        st.subheader(equipe2)
+
+        for action,val in actions.items():
+
+            n = st.number_input(action+" ",0,10,key=f"a2_{action}")
+            score_actions2 += n * val
+
+        for pen,val in penalites.items():
+
+            n = st.number_input(pen+" ",0,10,key=f"p2_{pen}")
+            score_pen2 += n * val
+
+    score1 = score_actions1 - score_pen1
+    score2 = score_actions2 - score_pen2
+
+    st.write("## Score")
+
+    c1,c2 = st.columns(2)
+
+    c1.metric(equipe1,score1)
+    c2.metric(equipe2,score2)
+
+    if st.button("Valider score"):
+
+        if score1 > score2:
+            vainqueur = equipe1_id
+            match_nul = False
+
+        elif score2 > score1:
+            vainqueur = equipe2_id
+            match_nul = False
+
+        else:
+            vainqueur = None
+            match_nul = True
 
         supabase.table("d1_matchs").update({
 
-            "score1":score1,
-            "score2":score2,
-            "vainqueur":None if score1==score2 else (equipe1_id if score1>score2 else equipe2_id),
-            "match_nul":score1==score2,
-            "termine":True
+            "score1": score1,
+            "score2": score2,
+            "vainqueur": vainqueur,
+            "match_nul": match_nul,
+            "termine": True
 
-        }).eq("id",match["id"]).execute()
+        }).eq("id", int(match["id"])).execute()
 
-        recalcul_classement_d1()
+        # mise à jour classement
+        team1 = supabase.table("d1_equipes").select("*").eq("id", equipe1_id).execute().data[0]
+        team2 = supabase.table("d1_equipes").select("*").eq("id", equipe2_id).execute().data[0]
+
+        supabase.table("d1_equipes").update({
+            "score_total": team1["score_total"] + score1
+        }).eq("id", equipe1_id).execute()
+
+        supabase.table("d1_equipes").update({
+            "score_total": team2["score_total"] + score2
+        }).eq("id", equipe2_id).execute()
 
         st.rerun()
         
