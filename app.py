@@ -147,7 +147,8 @@ else:
 
         }).eq("id", int(match["id"])).execute()
 
-        st.rerun()    st.stop()
+        st.rerun()    
+        st.stop()
 
 # match en cours
 match = df.iloc[0]
