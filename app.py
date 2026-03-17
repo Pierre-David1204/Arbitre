@@ -9,9 +9,9 @@ supabase = create_client(url,key)
 
 st.title("⚖️ Application arbitre")
 
-# terrain
 terrain = st.selectbox("Terrain",[1,2,3,4,5,6])
 
+# division
 if terrain <=4:
     division = "D2"
     table_matchs = "matchs"
@@ -32,18 +32,17 @@ data = supabase.table(table_matchs)\
     .order("heure")\
     .execute()
 
-if not data.data:
-    st.info("Aucun match")
-    st.stop()
-
 df = pd.DataFrame(data.data)
-df = df[df["termine"]==False]
+
+df = df[df["termine"] == False]
 
 if df.empty:
     st.success("Tous les matchs sont terminés")
     st.stop()
 
 match = df.iloc[0]
+
+match_key = f"match_{match['id']}"
 
 equipe1 = equipes[int(match["equipe1"])]
 equipe2 = equipes[int(match["equipe2"])]
@@ -53,36 +52,30 @@ heure = pd.to_datetime(str(match["heure"])).strftime("%H:%M")
 st.header(f"{heure} | Terrain {terrain}")
 st.subheader(f"{equipe1} vs {equipe2}")
 
-# ========================
-# D2
-# ========================
+# ======================
+# D2 BO3
+# ======================
 
 if division == "D2":
 
-    st.write("### Manches BO3")
+    st.write("### Manches")
 
-    col1,col2 = st.columns(2)
+    choix = [equipe1,equipe2,"Match nul"]
 
-    with col1:
-        st.subheader(equipe1)
-
-    with col2:
-        st.subheader(equipe2)
-
-    manche1 = st.radio("Manche 1",[equipe1,equipe2],horizontal=True)
-    manche2 = st.radio("Manche 2",[equipe1,equipe2],horizontal=True)
-    manche3 = st.radio("Manche 3",[equipe1,equipe2],horizontal=True)
+    m1 = st.radio("Manche 1",choix,key=f"{match_key}_m1",horizontal=True)
+    m2 = st.radio("Manche 2",choix,key=f"{match_key}_m2",horizontal=True)
+    m3 = st.radio("Manche 3",choix,key=f"{match_key}_m3",horizontal=True)
 
     if st.button("Valider résultat"):
 
         wins1 = 0
         wins2 = 0
 
-        for m in [manche1,manche2,manche3]:
+        for m in [m1,m2,m3]:
 
             if m == equipe1:
                 wins1 +=1
-            else:
+            elif m == equipe2:
                 wins2 +=1
 
         if wins1 > wins2:
@@ -103,9 +96,9 @@ if division == "D2":
 
         st.rerun()
 
-# ========================
+# ======================
 # D1
-# ========================
+# ======================
 
 else:
 
@@ -124,7 +117,6 @@ else:
 
     score_actions1 = 0
     score_pen1 = 0
-
     score_actions2 = 0
     score_pen2 = 0
 
@@ -132,36 +124,43 @@ else:
 
         st.subheader(equipe1)
 
-        for action,valeur in actions.items():
+        for action,val in actions.items():
 
-            n = st.number_input(action,0,10,key=f"a1_{action}")
-            score_actions1 += n*valeur
+            n = st.number_input(action,0,10,key=f"{match_key}_a1_{action}")
 
-        for pen,valeur in penalites.items():
+            score_actions1 += n * val
 
-            n = st.number_input(pen,0,10,key=f"p1_{pen}")
-            score_pen1 += n*valeur
+        for pen,val in penalites.items():
+
+            n = st.number_input(pen,0,10,key=f"{match_key}_p1_{pen}")
+
+            score_pen1 += n * val
 
     with col2:
 
         st.subheader(equipe2)
 
-        for action,valeur in actions.items():
+        for action,val in actions.items():
 
-            n = st.number_input(action+" ",0,10,key=f"a2_{action}")
-            score_actions2 += n*valeur
+            n = st.number_input(action+" ",0,10,key=f"{match_key}_a2_{action}")
 
-        for pen,valeur in penalites.items():
+            score_actions2 += n * val
 
-            n = st.number_input(pen+" ",0,10,key=f"p2_{pen}")
-            score_pen2 += n*valeur
+        for pen,val in penalites.items():
+
+            n = st.number_input(pen+" ",0,10,key=f"{match_key}_p2_{pen}")
+
+            score_pen2 += n * val
 
     score1 = score_actions1 - score_pen1
     score2 = score_actions2 - score_pen2
 
-    st.write("### Score calculé")
-    st.write(f"{equipe1} : {score1}")
-    st.write(f"{equipe2} : {score2}")
+    st.markdown("## Score")
+
+    sc1,sc2 = st.columns(2)
+
+    sc1.metric(equipe1,score1)
+    sc2.metric(equipe2,score2)
 
     if st.button("Valider score"):
 
