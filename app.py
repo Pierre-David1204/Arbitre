@@ -49,7 +49,10 @@ st.header(f"{heure} | Terrain {terrain}")
 st.subheader(f"{equipe1} vs {equipe2}")
 
 # vérifier division
-division = match["division"]
+if terrain <= 4:
+    division = "D2"
+else:
+    division = "D1"
 
 # D2
 if division == "D2":
