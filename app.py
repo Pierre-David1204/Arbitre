@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 
+# connexion
 url = "https://yzupjrzhqmojefurpmrx.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6dXBqcnpocW1vamVmdXJwbXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MTY0ODcsImV4cCI6MjA4ODk5MjQ4N30.4qYKmPfDagkicbC31aob3egY2msh7mzuk7ECRJ2-M1A"
 
@@ -12,6 +13,7 @@ st.title("⚖️ Application arbitre")
 
 terrain = st.selectbox("Terrain",[1,2,3,4,5,6])
 
+# division
 if terrain <=4:
     division = "D2"
     table_matchs = "matchs"
@@ -21,11 +23,11 @@ else:
     table_matchs = "d1_matchs"
     table_equipes = "d1_equipes"
 
-# récupérer équipes
+# équipes
 equipes_data = supabase.table(table_equipes).select("*").execute()
 equipes = {e["id"]:e["nom"] for e in equipes_data.data}
 
-# récupérer matchs
+# matchs
 data = supabase.table(table_matchs)\
     .select("*")\
     .eq("terrain",terrain)\
@@ -55,9 +57,9 @@ heure = pd.to_datetime(str(match["heure"])).strftime("%H:%M")
 st.header(f"{heure} | Terrain {terrain}")
 st.subheader(f"{equipe1} vs {equipe2}")
 
-# =====================
+# ========================
 # D2
-# =====================
+# ========================
 
 if division == "D2":
 
@@ -89,6 +91,7 @@ if division == "D2":
             vainqueur = None
             match_nul = True
 
+        # enregistrer match
         supabase.table("matchs").update({
 
             "score1":wins1,
@@ -100,27 +103,48 @@ if division == "D2":
         }).eq("id",int(match["id"])).execute()
 
         # classement
+        team1 = supabase.table("equipes").select("*").eq("id", equipe1_id).execute().data[0]
+        team2 = supabase.table("equipes").select("*").eq("id", equipe2_id).execute().data[0]
 
         if vainqueur == equipe1_id:
 
-            supabase.rpc("increment_victoire",{"team_id":equipe1_id}).execute()
-            supabase.rpc("increment_defaite",{"team_id":equipe2_id}).execute()
+            supabase.table("equipes").update({
+                "victoires": team1["victoires"] + 1,
+                "points": team1["points"] + 3
+            }).eq("id", equipe1_id).execute()
+
+            supabase.table("equipes").update({
+                "defaites": team2["defaites"] + 1
+            }).eq("id", equipe2_id).execute()
 
         elif vainqueur == equipe2_id:
 
-            supabase.rpc("increment_victoire",{"team_id":equipe2_id}).execute()
-            supabase.rpc("increment_defaite",{"team_id":equipe1_id}).execute()
+            supabase.table("equipes").update({
+                "victoires": team2["victoires"] + 1,
+                "points": team2["points"] + 3
+            }).eq("id", equipe2_id).execute()
+
+            supabase.table("equipes").update({
+                "defaites": team1["defaites"] + 1
+            }).eq("id", equipe1_id).execute()
 
         else:
 
-            supabase.rpc("increment_nul",{"team_id":equipe1_id}).execute()
-            supabase.rpc("increment_nul",{"team_id":equipe2_id}).execute()
+            supabase.table("equipes").update({
+                "nuls": team1["nuls"] + 1,
+                "points": team1["points"] + 1
+            }).eq("id", equipe1_id).execute()
+
+            supabase.table("equipes").update({
+                "nuls": team2["nuls"] + 1,
+                "points": team2["points"] + 1
+            }).eq("id", equipe2_id).execute()
 
         st.rerun()
 
-# =====================
+# ========================
 # D1
-# =====================
+# ========================
 
 else:
 
@@ -199,13 +223,16 @@ else:
 
         }).eq("id",int(match["id"])).execute()
 
-        supabase.table("d1_equipes").update({
-            "score_total":score1
-        }).eq("id",equipe1_id).execute()
+        team1 = supabase.table("d1_equipes").select("*").eq("id", equipe1_id).execute().data[0]
+        team2 = supabase.table("d1_equipes").select("*").eq("id", equipe2_id).execute().data[0]
 
         supabase.table("d1_equipes").update({
-            "score_total":score2
-        }).eq("id",equipe2_id).execute()
+            "score_total": team1["score_total"] + score1
+        }).eq("id", equipe1_id).execute()
+
+        supabase.table("d1_equipes").update({
+            "score_total": team2["score_total"] + score2
+        }).eq("id", equipe2_id).execute()
 
         st.rerun()
         
